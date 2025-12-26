@@ -1,0 +1,53 @@
+[project]
+name = "inspect-modal-sandbox"
+version = "0.1.0"
+description = "A Modal Sandbox Environment for Inspect"
+readme = "README.md"
+authors = [
+    {name = "Anthony Duong"}
+]
+requires-python = ">=3.10"
+dependencies = [
+    "inspect-ai>=0.3.0",
+    "modal>=0.73.0",
+]
+
+[project.entry-points."inspect_ai"]
+"modal-sandbox" = "inspect_modal_sandbox._modal_sandbox_environment"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["tests"]
+testpaths = ["tests/**/*.py"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/inspect_modal_sandbox"]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "D", "I"]
+ignore = ["D212"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D10"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["inspect_modal_sandbox", "tests.inspect_modal_sandbox_test"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.14.1",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.3",
+    "ruff>=0.9.3",
+]
