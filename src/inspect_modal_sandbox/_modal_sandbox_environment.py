@@ -113,7 +113,7 @@ class ModalSandboxEnvironment(SandboxEnvironment):
         if not os.path.isfile(config):
             raise FileNotFoundError(f"Dockerfile not found: {config}")
 
-        image = modal.Image.from_dockerfile(config, add_python="3.11")
+        image = modal.Image.from_dockerfile(config)
         cls.image_cache[config] = image
         return image
 
