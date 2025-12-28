@@ -79,7 +79,7 @@ inspect eval my_task.py --sandbox modal:path/to/Dockerfile
 
 ## Known Limitations
 
-- **User switching**: The `user` parameter in `exec()` is implemented via `su` wrapper rather than native container user switching
+- **User switching**: The `user` parameter in `exec()` is ignored. Commands run as the container's default user (root).
 - **Network access**: Modal sandboxes have internet access by default. See [Modal's networking docs](https://modal.com/docs/guide/sandbox-networking) for restrictions
 - **Root execution**: Modal containers run as root by default
 
