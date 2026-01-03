@@ -85,7 +85,6 @@ inspect eval my_task.py --sandbox modal:path/to/Dockerfile
 
 ## Tech Debt / Missing features
 
-- CLI cleanup command not implemented
 - Configuration options (timeout, resources) not yet exposed
 
 ## Developing
