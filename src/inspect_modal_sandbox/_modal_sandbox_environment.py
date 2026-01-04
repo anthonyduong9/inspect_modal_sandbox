@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import errno
+import os
+import sys
 import warnings
 from logging import getLogger
 from pathlib import PurePosixPath
@@ -16,6 +18,9 @@ from inspect_ai.util import (
     sandboxenv,
 )
 from inspect_ai.util._sandbox.limits import OutputLimitExceededError
+from rich import box, print
+from rich.prompt import Confirm
+from rich.table import Table
 from typing_extensions import override
 
 logger = getLogger(__name__)
@@ -65,6 +70,53 @@ class ModalSandboxEnvironment(SandboxEnvironment):
                 env.as_type(ModalSandboxEnvironment).sandbox.terminate()
             except Exception as e:
                 logger.warning(f"Error terminating Modal sandbox: {e}")
+
+    @override
+    @classmethod
+    async def cli_cleanup(cls, id: str | None) -> None:
+        if id is not None:
+            try:
+                sandbox = modal.Sandbox.from_id(id)
+                sandbox.terminate()
+            except Exception as e:
+                print(f"Error terminating sandbox {id}: {e}")
+        else:
+            sandboxes = list(modal.Sandbox.list())
+
+            if not sandboxes:
+                print("No Modal sandboxes found to clean up.")
+                return
+
+            table = Table(
+                box=box.SQUARE,
+                show_lines=False,
+                title_style="bold",
+                title_justify="left",
+            )
+            table.add_column("Sandbox ID")
+            for sb in sandboxes:
+                table.add_row(sb.object_id)
+            print(table)
+
+            # Borrowed from the proxmox provider - only prompt if in an interactive shell
+            is_interactive = sys.stdin.isatty()
+            is_ci = "CI" in os.environ
+            is_pytest = "PYTEST_CURRENT_TEST" in os.environ
+
+            if is_interactive and not is_ci and not is_pytest:
+                if not Confirm.ask(
+                    f"Are you sure you want to terminate ALL {len(sandboxes)} "
+                    "sandbox(es) above?"
+                ):
+                    print("Cancelled.")
+                    return
+
+            for sb in sandboxes:
+                try:
+                    sb.terminate()
+                except Exception as e:
+                    print(f"Error terminating sandbox: {e}")
+            print("Complete.")
 
     @override
     async def exec(
