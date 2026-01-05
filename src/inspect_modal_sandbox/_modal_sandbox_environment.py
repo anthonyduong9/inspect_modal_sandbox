@@ -44,16 +44,18 @@ class ModalSandboxEnvironment(SandboxEnvironment):
         config: SandboxEnvironmentConfigType | None,
         metadata: dict[str, str],
     ) -> dict[str, SandboxEnvironment]:
-        app = modal.App.lookup(MODAL_APP_NAME, create_if_missing=True)
+        def _create_sandbox() -> modal.Sandbox:
+            app = modal.App.lookup(MODAL_APP_NAME, create_if_missing=True)
+            image = (
+                modal.Image.from_dockerfile(config) if isinstance(config, str) else None
+            )
+            return modal.Sandbox.create(
+                app=app,
+                image=image,
+                timeout=60 * 60,  # 1 hour
+            )
 
-        image = modal.Image.from_dockerfile(config) if isinstance(config, str) else None
-
-        sandbox = modal.Sandbox.create(
-            app=app,
-            image=image,
-            timeout=60 * 60,  # 1 hour
-        )
-
+        sandbox = await asyncio.to_thread(_create_sandbox)
         return {"default": cls(sandbox)}
 
     @override
@@ -67,7 +69,8 @@ class ModalSandboxEnvironment(SandboxEnvironment):
     ) -> None:
         for env in environments.values():
             try:
-                env.as_type(ModalSandboxEnvironment).sandbox.terminate()
+                sandbox = env.as_type(ModalSandboxEnvironment).sandbox
+                await asyncio.to_thread(sandbox.terminate)
             except Exception as e:
                 logger.warning(f"Error terminating Modal sandbox: {e}")
 
@@ -76,12 +79,12 @@ class ModalSandboxEnvironment(SandboxEnvironment):
     async def cli_cleanup(cls, id: str | None) -> None:
         if id is not None:
             try:
-                sandbox = modal.Sandbox.from_id(id)
-                sandbox.terminate()
+                sandbox = await asyncio.to_thread(modal.Sandbox.from_id, id)
+                await asyncio.to_thread(sandbox.terminate)
             except Exception as e:
                 print(f"Error terminating sandbox {id}: {e}")
         else:
-            sandboxes = list(modal.Sandbox.list())
+            sandboxes = await asyncio.to_thread(lambda: list(modal.Sandbox.list()))
 
             if not sandboxes:
                 print("No Modal sandboxes found to clean up.")
@@ -113,7 +116,7 @@ class ModalSandboxEnvironment(SandboxEnvironment):
 
             for sb in sandboxes:
                 try:
-                    sb.terminate()
+                    await asyncio.to_thread(sb.terminate)
                 except Exception as e:
                     print(f"Error terminating sandbox: {e}")
             print("Complete.")
@@ -183,31 +186,38 @@ class ModalSandboxEnvironment(SandboxEnvironment):
 
     @override
     async def write_file(self, file: str, contents: str | bytes) -> None:
-        # Ensure parent directory exists
-        parent = str(PurePosixPath(file).parent)
-        if parent and parent != "/" and parent != ".":
-            try:
-                self.sandbox.mkdir(parent, parents=True)
-            except Exception:
-                pass  # Directory may already exist
+        def _write() -> None:
+            # Ensure parent directory exists
+            parent = str(PurePosixPath(file).parent)
+            if parent and parent != "/" and parent != ".":
+                try:
+                    self.sandbox.mkdir(parent, parents=True)
+                except Exception:
+                    pass  # Directory may already exist
 
-        mode = "w" if isinstance(contents, str) else "wb"
-        with self.sandbox.open(file, mode) as f:
-            f.write(contents)
+            mode = "w" if isinstance(contents, str) else "wb"
+            with self.sandbox.open(file, mode) as f:
+                f.write(contents)
+
+        await asyncio.to_thread(_write)
 
     @override
     async def read_file(self, file: str, text: bool = True) -> str | bytes:
         mode = "r" if text else "rb"
-        try:
+
+        def _read() -> str | bytes:
             with self.sandbox.open(file, mode) as f:
-                contents = f.read()
+                return f.read()
+
+        try:
+            contents = await asyncio.to_thread(_read)
         except FileNotFoundError:
             raise FileNotFoundError(errno.ENOENT, "No such file or directory", file)
         except IsADirectoryError:
             raise IsADirectoryError(errno.EISDIR, "Is a directory", file)
         except modal.exception.FilesystemExecutionError:
             # Fallback for unspecified errors
-            if self._is_directory(file):
+            if await asyncio.to_thread(self._is_directory, file):
                 raise IsADirectoryError(errno.EISDIR, "Is a directory", file)
             raise FileNotFoundError(errno.ENOENT, "No such file or directory", file)
 
