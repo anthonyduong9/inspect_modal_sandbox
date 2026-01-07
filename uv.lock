@@ -821,7 +821,7 @@ wheels = [
 
 [[package]]
 name = "inspect-modal-sandbox"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "inspect-ai" },
@@ -839,7 +839,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "inspect-ai", specifier = ">=0.3.0" },
-    { name = "modal", specifier = ">=0.73.0" },
+    { name = "modal", specifier = ">=1.2.6" },
 ]
 
 [package.metadata.requires-dev]

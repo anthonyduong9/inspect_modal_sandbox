@@ -44,16 +44,13 @@ class ModalSandboxEnvironment(SandboxEnvironment):
         config: SandboxEnvironmentConfigType | None,
         metadata: dict[str, str],
     ) -> dict[str, SandboxEnvironment]:
-        app = modal.App.lookup(MODAL_APP_NAME, create_if_missing=True)
-
+        app = await modal.App.lookup.aio(MODAL_APP_NAME, create_if_missing=True)
         image = modal.Image.from_dockerfile(config) if isinstance(config, str) else None
-
-        sandbox = modal.Sandbox.create(
+        sandbox = await modal.Sandbox.create.aio(
             app=app,
             image=image,
             timeout=60 * 60,  # 1 hour
         )
-
         return {"default": cls(sandbox)}
 
     @override
@@ -67,7 +64,8 @@ class ModalSandboxEnvironment(SandboxEnvironment):
     ) -> None:
         for env in environments.values():
             try:
-                env.as_type(ModalSandboxEnvironment).sandbox.terminate()
+                sandbox = env.as_type(ModalSandboxEnvironment).sandbox
+                await sandbox.terminate.aio()
             except Exception as e:
                 logger.warning(f"Error terminating Modal sandbox: {e}")
 
@@ -76,12 +74,12 @@ class ModalSandboxEnvironment(SandboxEnvironment):
     async def cli_cleanup(cls, id: str | None) -> None:
         if id is not None:
             try:
-                sandbox = modal.Sandbox.from_id(id)
-                sandbox.terminate()
+                sandbox = await modal.Sandbox.from_id.aio(id)
+                await sandbox.terminate.aio()
             except Exception as e:
                 print(f"Error terminating sandbox {id}: {e}")
         else:
-            sandboxes = list(modal.Sandbox.list())
+            sandboxes = [sb async for sb in modal.Sandbox.list.aio()]
 
             if not sandboxes:
                 print("No Modal sandboxes found to clean up.")
@@ -98,7 +96,7 @@ class ModalSandboxEnvironment(SandboxEnvironment):
                 table.add_row(sb.object_id)
             print(table)
 
-            # Borrowed from the proxmox provider - only prompt if in an interactive shell
+            # Borrowed from the proxmox provider - only prompt if in an interactive shell  # noqa: E501
             is_interactive = sys.stdin.isatty()
             is_ci = "CI" in os.environ
             is_pytest = "PYTEST_CURRENT_TEST" in os.environ
@@ -113,7 +111,7 @@ class ModalSandboxEnvironment(SandboxEnvironment):
 
             for sb in sandboxes:
                 try:
-                    sb.terminate()
+                    await sb.terminate.aio()
                 except Exception as e:
                     print(f"Error terminating sandbox: {e}")
             print("Complete.")
@@ -142,8 +140,8 @@ class ModalSandboxEnvironment(SandboxEnvironment):
         if workdir is not None and not PurePosixPath(workdir).is_absolute():
             workdir = f"/{workdir}"
 
-        def _run() -> ExecResult[str]:
-            process = self.sandbox.exec(
+        async def _run() -> ExecResult[str]:
+            process = await self.sandbox.exec.aio(
                 *cmd,
                 workdir=workdir,
                 env=env if env else None,
@@ -153,11 +151,11 @@ class ModalSandboxEnvironment(SandboxEnvironment):
                 data = input.encode("utf-8") if isinstance(input, str) else input
                 process.stdin.write(data)
                 process.stdin.write_eof()
-                process.stdin.drain()
+                await process.stdin.drain.aio()
 
-            stdout = process.stdout.read()
-            stderr = process.stderr.read()
-            process.wait()
+            stdout = await process.stdout.read.aio()
+            stderr = await process.stderr.read.aio()
+            await process.wait.aio()
 
             return ExecResult(
                 success=process.returncode == 0,
@@ -168,11 +166,9 @@ class ModalSandboxEnvironment(SandboxEnvironment):
 
         try:
             if timeout:
-                result = await asyncio.wait_for(
-                    asyncio.to_thread(_run), timeout=timeout
-                )
+                result = await asyncio.wait_for(_run(), timeout=timeout)
             else:
-                result = await asyncio.to_thread(_run)
+                result = await _run()
 
             # Verify output limits
             self._verify_exec_result_size(result)
@@ -187,27 +183,28 @@ class ModalSandboxEnvironment(SandboxEnvironment):
         parent = str(PurePosixPath(file).parent)
         if parent and parent != "/" and parent != ".":
             try:
-                self.sandbox.mkdir(parent, parents=True)
+                await self.sandbox.mkdir.aio(parent, parents=True)
             except Exception:
                 pass  # Directory may already exist
 
         mode = "w" if isinstance(contents, str) else "wb"
-        with self.sandbox.open(file, mode) as f:
-            f.write(contents)
+        async with await self.sandbox.open.aio(file, mode) as f:
+            await f.write.aio(contents)
 
     @override
     async def read_file(self, file: str, text: bool = True) -> str | bytes:
         mode = "r" if text else "rb"
+
         try:
-            with self.sandbox.open(file, mode) as f:
-                contents = f.read()
+            async with await self.sandbox.open.aio(file, mode) as f:
+                contents = await f.read.aio()
         except FileNotFoundError:
             raise FileNotFoundError(errno.ENOENT, "No such file or directory", file)
         except IsADirectoryError:
             raise IsADirectoryError(errno.EISDIR, "Is a directory", file)
         except modal.exception.FilesystemExecutionError:
             # Fallback for unspecified errors
-            if self._is_directory(file):
+            if await self._is_directory(file):
                 raise IsADirectoryError(errno.EISDIR, "Is a directory", file)
             raise FileNotFoundError(errno.ENOENT, "No such file or directory", file)
 
@@ -221,11 +218,11 @@ class ModalSandboxEnvironment(SandboxEnvironment):
 
         return contents
 
-    def _is_directory(self, path: str) -> bool:
+    async def _is_directory(self, path: str) -> bool:
         """Check if path is a directory."""
         try:
-            process = self.sandbox.exec("test", "-d", path)
-            process.wait()
+            process = await self.sandbox.exec.aio("test", "-d", path)
+            await process.wait.aio()
             return process.returncode == 0
         except Exception:
             return False
