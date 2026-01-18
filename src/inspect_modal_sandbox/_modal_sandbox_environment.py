@@ -27,7 +27,7 @@ from rich.prompt import Confirm
 from rich.table import Table
 from typing_extensions import override
 
-from ._compose import SUPPORTED_FIELDS, convert_compose_to_modal_params
+from ._compose import convert_compose_to_modal_params
 
 logger = getLogger(__name__)
 
@@ -62,7 +62,6 @@ class ModalSandboxEnvironment(SandboxEnvironment):
             if is_compose_yaml(config):
                 compose_config = parse_compose_yaml(
                     config,
-                    supported_fields=SUPPORTED_FIELDS,
                     multiple_services=False,
                 )
                 modal_params = convert_compose_to_modal_params(compose_config, config)

@@ -5,18 +5,6 @@ from typing import Any
 import modal
 from inspect_ai.util import ComposeConfig, ComposeService
 
-SUPPORTED_FIELDS = [
-    "image",
-    "build",
-    "working_dir",
-    "environment",
-    "mem_limit",
-    "cpus",
-    "deploy",  # For native GPU support via deploy.resources.reservations.devices
-    "x-default",
-    "x-inspect_modal_sandbox",
-]
-
 
 def _convert_byte_value(mem_limit: str) -> int:
     mem_limit = mem_limit.lower().strip()
