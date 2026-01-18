@@ -1,6 +1,6 @@
 [project]
 name = "inspect-modal-sandbox"
-version = "0.1.1"
+version = "0.2.0"
 description = "A Modal Sandbox Environment for Inspect"
 readme = "README.md"
 authors = [
@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "inspect-ai>=0.3.0",
+    "inspect-ai>=0.3.162",
     "modal>=1.2.6",
 ]
 
