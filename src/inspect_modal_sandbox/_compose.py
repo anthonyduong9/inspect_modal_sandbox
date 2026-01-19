@@ -86,7 +86,7 @@ def convert_compose_to_modal_params(
     if gpu:
         params["gpu"] = gpu
 
-    extensions = service.extensions.get("x-inspect_modal_sandbox", {})
+    extensions = config.extensions.get("x-inspect_modal_sandbox", {})
 
     if extensions.get("block_network") is not None:
         params["block_network"] = extensions["block_network"]

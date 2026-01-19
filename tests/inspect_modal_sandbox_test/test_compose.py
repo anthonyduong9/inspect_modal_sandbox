@@ -43,12 +43,12 @@ services:
             - driver: nvidia
               capabilities: [gpu]
               count: 1
-    x-inspect_modal_sandbox:
-      timeout: 7200
-      block_network: true
-      cidr_allowlist:
-        - "10.0.0.0/8"
-        - "172.16.0.0/12"
+x-inspect_modal_sandbox:
+  timeout: 7200
+  block_network: true
+  cidr_allowlist:
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
 """)
     config = parse_compose_yaml(str(compose_file))
     params = convert_compose_to_modal_params(config, str(compose_file))
@@ -252,14 +252,14 @@ def test_converts_x_inspect_modal_sandbox(tmp_compose: TmpComposeFixture) -> Non
 services:
   my-service:
     image: my-image
-    x-inspect_modal_sandbox:
-      timeout: 3600
-      cloud: aws
-      region: us-east-1
-      block_network: true
-      cidr_allowlist:
-        - "10.0.0.0/8"
-      idle_timeout: 300
+x-inspect_modal_sandbox:
+  timeout: 3600
+  cloud: aws
+  region: us-east-1
+  block_network: true
+  cidr_allowlist:
+    - "10.0.0.0/8"
+  idle_timeout: 300
 """)
     config = parse_compose_yaml(str(compose_path))
     params = convert_compose_to_modal_params(config, str(compose_path))
@@ -277,8 +277,8 @@ def test_converts_x_inspect_modal_sandbox_partial(tmp_compose: TmpComposeFixture
 services:
   my-service:
     image: my-image
-    x-inspect_modal_sandbox:
-      block_network: true
+x-inspect_modal_sandbox:
+  block_network: true
 """)
     config = parse_compose_yaml(str(compose_path))
     params = convert_compose_to_modal_params(config, str(compose_path))
