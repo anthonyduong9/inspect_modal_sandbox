@@ -7,6 +7,7 @@ import sys
 import warnings
 from logging import getLogger
 from pathlib import PurePosixPath
+from typing import Any
 
 import modal
 import modal.exception
@@ -15,6 +16,9 @@ from inspect_ai.util import (
     SandboxEnvironment,
     SandboxEnvironmentConfigType,
     SandboxEnvironmentLimits,
+    is_compose_yaml,
+    is_dockerfile,
+    parse_compose_yaml,
     sandboxenv,
 )
 from inspect_ai.util._sandbox.limits import OutputLimitExceededError
@@ -22,6 +26,8 @@ from rich import box, print
 from rich.prompt import Confirm
 from rich.table import Table
 from typing_extensions import override
+
+from ._compose import convert_compose_to_modal_params
 
 logger = getLogger(__name__)
 
@@ -45,12 +51,30 @@ class ModalSandboxEnvironment(SandboxEnvironment):
         metadata: dict[str, str],
     ) -> dict[str, SandboxEnvironment]:
         app = await modal.App.lookup.aio(MODAL_APP_NAME, create_if_missing=True)
-        image = modal.Image.from_dockerfile(config) if isinstance(config, str) else None
-        sandbox = await modal.Sandbox.create.aio(
-            app=app,
-            image=image,
-            timeout=60 * 60,  # 1 hour
-        )
+
+        # Default parameters
+        sandbox_params: dict[str, Any] = {
+            "app": app,
+            "timeout": 60 * 60 * 24,  # 24 hours (maximum lifetime)
+        }
+
+        if isinstance(config, str):
+            if is_compose_yaml(config):
+                compose_config = parse_compose_yaml(
+                    config,
+                    multiple_services=False,
+                )
+                modal_params = convert_compose_to_modal_params(compose_config, config)
+                sandbox_params.update(modal_params)
+            elif is_dockerfile(config):
+                sandbox_params["image"] = modal.Image.from_dockerfile(config)
+            else:
+                raise ValueError(
+                    f"Unrecognized config file: {config}. "
+                    "Expected a compose file (compose.yaml) or Dockerfile."
+                )
+
+        sandbox = await modal.Sandbox.create.aio(**sandbox_params)
         return {"default": cls(sandbox)}
 
     @override
@@ -115,6 +139,16 @@ class ModalSandboxEnvironment(SandboxEnvironment):
                 except Exception as e:
                     print(f"Error terminating sandbox: {e}")
             print("Complete.")
+
+    @classmethod
+    def config_files(cls) -> list[str]:
+        return [
+            "compose.yaml",
+            "compose.yml",
+            "docker-compose.yaml",
+            "docker-compose.yml",
+            "Dockerfile",
+        ]
 
     @override
     async def exec(

@@ -30,62 +30,50 @@ pip install modal
 python3 -m modal setup
 ```
 
-## Container Image
+## Configuring evals
+
+You can configure the eval using either a Docker Compose file, or by specifying a Dockerfile path.
 
 By default, the provider uses Modal's default Debian-based image with Python 3.11.
 
-You can specify a custom Dockerfile:
+### Docker Compose
+
+The `services` key is required. All other options are optional.
+
+```yaml
+services:
+  default:
+    image: python:3.12
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    environment:
+      MY_VAR: "value"
+    mem_limit: 1g
+    cpus: 2.0
+x-inspect_modal_sandbox:
+  timeout: 3600
+  idle_timeout: 300
+  block_network: false
+  cidr_allowlist:
+    - "0.0.0.0/0"
+  cloud: aws
+  region: us-east-1
+```
+
+### Dockerfile
+
+As an alternative to Docker Compose you can specify a Dockerfile path directly, e.g.
 
 ```python
 sandbox=("modal", "path/to/Dockerfile")
 ```
 
-## Configuring evals
-
-Basic usage:
-
-```python
-from inspect_ai import Task, task
-from inspect_ai.dataset import Sample
-from inspect_ai.solver import generate
-
-@task
-def my_task():
-    return Task(
-        dataset=[Sample(input="Hello")],
-        solver=generate(),
-        sandbox="modal",
-    )
-```
-
-With a custom Dockerfile:
-
-```python
-@task
-def my_task():
-    return Task(
-        dataset=[...],
-        solver=generate(),
-        sandbox=("modal", "path/to/Dockerfile"),
-    )
-```
-
-From command line:
-
-```bash
-inspect eval my_task.py --sandbox modal
-inspect eval my_task.py --sandbox modal:path/to/Dockerfile
-```
-
 ## Known Limitations
 
 - **User switching**: The `user` parameter in `exec()` is ignored. Commands run as the container's default user (root).
-- **Network access**: Modal sandboxes have internet access by default. See [Modal's networking docs](https://modal.com/docs/guide/sandbox-networking) for restrictions
-- **Root execution**: Modal containers run as root by default
-
-## Tech Debt / Missing features
-
-- Configuration options (timeout, resources) not yet exposed
+- **Root execution**: Modal containers run as root by default.
 
 ## Developing
 
