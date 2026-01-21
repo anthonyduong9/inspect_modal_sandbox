@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0 - 2026-01-21
+
+- Accept any YAML file as compose config (enables `{instance_id}-compose.yaml` patterns)
+
 ## 0.2.0 - 2026-01-19
 
 - Add Docker Compose file support with `x-inspect_modal_sandbox` extensions
