@@ -16,7 +16,6 @@ from inspect_ai.util import (
     SandboxEnvironment,
     SandboxEnvironmentConfigType,
     SandboxEnvironmentLimits,
-    is_compose_yaml,
     is_dockerfile,
     parse_compose_yaml,
     sandboxenv,
@@ -59,19 +58,21 @@ class ModalSandboxEnvironment(SandboxEnvironment):
         }
 
         if isinstance(config, str):
-            if is_compose_yaml(config):
+            if is_dockerfile(config):
+                sandbox_params["image"] = modal.Image.from_dockerfile(config)
+            elif config.endswith((".yaml", ".yml")):
+                # Accept any YAML file as a compose file (not just compose.yaml)
+                # This allows files like {instance_id}-compose.yaml
                 compose_config = parse_compose_yaml(
                     config,
                     multiple_services=False,
                 )
                 modal_params = convert_compose_to_modal_params(compose_config, config)
                 sandbox_params.update(modal_params)
-            elif is_dockerfile(config):
-                sandbox_params["image"] = modal.Image.from_dockerfile(config)
             else:
                 raise ValueError(
                     f"Unrecognized config file: {config}. "
-                    "Expected a compose file (compose.yaml) or Dockerfile."
+                    "Expected a compose file (*.yaml/*.yml) or Dockerfile."
                 )
 
         sandbox = await modal.Sandbox.create.aio(**sandbox_params)

@@ -1,6 +1,6 @@
 [project]
 name = "inspect-modal-sandbox"
-version = "0.2.0"
+version = "0.3.0"
 description = "A Modal Sandbox Environment for Inspect"
 readme = "README.md"
 authors = [
