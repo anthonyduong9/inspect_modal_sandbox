@@ -12,6 +12,7 @@ from typing import Any
 import modal
 import modal.exception
 from inspect_ai.util import (
+    ComposeConfig,
     ExecResult,
     SandboxEnvironment,
     SandboxEnvironmentConfigType,
@@ -74,6 +75,11 @@ class ModalSandboxEnvironment(SandboxEnvironment):
                     f"Unrecognized config file: {config}. "
                     "Expected a compose file (*.yaml/*.yml) or Dockerfile."
                 )
+        elif isinstance(config, ComposeConfig):
+            # ComposeConfig passed directly (e.g., from Docker-compatible forwarding)
+            # Use "." as base path - relative paths resolve from cwd
+            modal_params = convert_compose_to_modal_params(config, ".")
+            sandbox_params.update(modal_params)
 
         sandbox = await modal.Sandbox.create.aio(**sandbox_params)
         return {"default": cls(sandbox)}
