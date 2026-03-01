@@ -56,6 +56,8 @@ def convert_compose_to_modal_params(
     params: dict[str, Any] = {}
     compose_dir = Path(compose_path).parent
 
+    extensions = config.extensions.get("x-inspect_modal_sandbox", {})
+
     if service.build:
         if isinstance(service.build, str):
             dockerfile_path = compose_dir / service.build / "Dockerfile"
@@ -65,7 +67,11 @@ def convert_compose_to_modal_params(
             dockerfile_path = compose_dir / context / dockerfile
         params["image"] = modal.Image.from_dockerfile(dockerfile_path)
     elif service.image:
-        params["image"] = modal.Image.from_registry(service.image)
+        registry_kwargs: dict[str, Any] = {}
+        registry_secret = extensions.get("registry_secret")
+        if registry_secret:
+            registry_kwargs["secret"] = modal.Secret.from_name(registry_secret)
+        params["image"] = modal.Image.from_registry(service.image, **registry_kwargs)
 
     if service.working_dir:
         params["workdir"] = service.working_dir
@@ -85,8 +91,6 @@ def convert_compose_to_modal_params(
     gpu = _service_to_gpu(service)
     if gpu:
         params["gpu"] = gpu
-
-    extensions = config.extensions.get("x-inspect_modal_sandbox", {})
 
     if extensions.get("block_network") is not None:
         params["block_network"] = extensions["block_network"]
