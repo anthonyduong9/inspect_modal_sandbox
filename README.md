@@ -1,5 +1,11 @@
 # Inspect Modal Sandbox
 
+### Transitioning to Inspect Sandboxes
+
+I recommend transitioning from Inspect Modal Sandbox to [Inspect Sandboxes](https://github.com/meridianlabs-ai/inspect_sandboxes) or that new projects use Inspect Sandboxes instead.
+
+Existing Inspect Modal Sandbox users can continue using it but should be aware of this transition.
+
 ## Purpose
 
 This plugin for [Inspect](https://inspect.aisi.org.uk/) allows you to use containers
